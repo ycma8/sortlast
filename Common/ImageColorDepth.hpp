@@ -162,6 +162,68 @@ class ImageColorDepth : public ImageFull, ImageColorDepthBase {
     ThisType* outImage = dynamic_cast<ThisType*>(outImageHolder.get());
     assert((outImage != NULL) && "Internal error: createNew bad type.");
 
+
+    // Viewport totalViewport = outImage->getValidViewport();
+    // Viewport slideViewport(0, totalRegionBegin / this->getWidth(), 
+    //                        this->getWidth() - 1, totalRegionEnd / this->getWidth());
+
+    // totalViewport = totalViewport.intersectWith(slideViewport);
+
+    // int MinX = totalViewport.getMinX();
+    // int MaxX = totalViewport.getMaxX();
+    // int MinY = totalViewport.getMinY();
+    // int MaxY = totalViewport.getMaxY();
+    
+    // int Index;
+
+    // for (int j = MinY; j <= MaxY; j++) {
+    //     for (int i = MinX; i <= MaxX; i++) {     
+    //         Index = i + j * topImage->getWidth();
+    //         if (Index >= totalRegionBegin && Index <= totalRegionEnd) {
+    //             Index = Index % outImage->getNumberOfPixels();
+    //             if (topImage->getValidViewport().getMinX() <= i && i <= topImage->getValidViewport().getMaxX() && topImage->getValidViewport().getMinY() <= j && j <= topImage->getValidViewport().getMaxY() && !(bottomImage->getValidViewport().getMinX() <= i && i <= bottomImage->getValidViewport().getMaxX() && bottomImage->getValidViewport().getMinY() <= j && j <= bottomImage->getValidViewport().getMaxY())) {
+    //                 std::copy(topImage->getColorBuffer(Index),
+    //                           topImage->getColorBuffer(Index + 1),
+    //                           outImage->getColorBuffer(Index));
+    //                 *outImage->getDepthBuffer(Index) =
+    //                     *topImage->getDepthBuffer(Index);
+    //             }
+    //             else if (!(topImage->getValidViewport().getMinX() <= i && i <= topImage->getValidViewport().getMaxX() && topImage->getValidViewport().getMinY() <= j && j <= topImage->getValidViewport().getMaxY()) && bottomImage->getValidViewport().getMinX() <= i && i <= bottomImage->getValidViewport().getMaxX() && bottomImage->getValidViewport().getMinY() <= j && j <= bottomImage->getValidViewport().getMaxY()) {
+    //                 std::copy(bottomImage->getColorBuffer(Index),
+    //                           bottomImage->getColorBuffer(Index + 1),
+    //                           outImage->getColorBuffer(Index));
+    //                 *outImage->getDepthBuffer(Index) =
+    //                     *bottomImage->getDepthBuffer(Index);
+    //             }
+    //             else if (topImage->getValidViewport().getMinX() <= i && i <= topImage->getValidViewport().getMaxX() && topImage->getValidViewport().getMinY() <= j && j <= topImage->getValidViewport().getMaxY() && bottomImage->getValidViewport().getMinX() <= i && i <= bottomImage->getValidViewport().getMaxX() && bottomImage->getValidViewport().getMinY() <= j && j <= bottomImage->getValidViewport().getMaxY()){
+    //                 if (Features::closer(*bottomImage->getDepthBuffer(Index),
+    //                     *topImage->getDepthBuffer(Index))) {
+    //                     std::copy(bottomImage->getColorBuffer(Index),
+    //                     bottomImage->getColorBuffer(Index + 1),
+    //                     outImage->getColorBuffer(Index));
+    //                     *outImage->getDepthBuffer(Index) =
+    //                         *bottomImage->getDepthBuffer(Index);
+    //                 } else {
+    //                     std::copy(topImage->getColorBuffer(Index),
+    //                     topImage->getColorBuffer(Index + 1),
+    //                     outImage->getColorBuffer(Index));
+    //                     *outImage->getDepthBuffer(Index) =
+    //                         *topImage->getDepthBuffer(Index);
+    //                 }
+    //             }
+    //             else {
+    //                 // 把点设置为颜色和深度都是背景的状态
+    //                 ColorType colorValue[ColorVecSize];
+    //                 Features::encodeColor(Color(0, 0, 0, 0), colorValue);
+    //                 DepthType depthValue;
+    //                 Features::encodeDepth(1.0, &depthValue);
+    //                 std::copy(colorValue, colorValue + ColorVecSize, outImage->getColorBuffer(Index));
+    //                 *outImage->getDepthBuffer(Index) = depthValue;
+    //             }
+    //         }
+    //     }        
+    // }
+
     int topPixelIndex = 0;
     int bottomPixelIndex = 0;
     int outPixelIndex = 0;
@@ -212,7 +274,6 @@ class ImageColorDepth : public ImageFull, ImageColorDepthBase {
       ++bottomPixelIndex;
       ++outPixelIndex;
     }
-
     // Manage where part of one image has a region past the end of the other
     if (topPixelIndex < topImage->getNumberOfPixels()) {
       int numToCopy = topImage->getNumberOfPixels() - topPixelIndex;
