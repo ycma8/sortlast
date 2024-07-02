@@ -864,7 +864,7 @@ void icetRadixkrCompose(const IceTInt *compose_group,
        the split values in the info structure. */
     my_offset = 0;
     remaining_partitions = total_num_partitions;
-
+    /* 均分图像在下面进行 */
     for (current_round = 0; current_round < info.num_rounds; current_round++) {
         IceTSizeType my_size = icetSparseImageGetNumPixels(working_image);
         const radixkrRoundInfo *round_info = &info.rounds[current_round];

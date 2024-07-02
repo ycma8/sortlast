@@ -24,6 +24,7 @@ add_subdirectory(BinarySwap)
 add_subdirectory(DirectSend)
 add_subdirectory(2-3-Swap)
 add_subdirectory(RadixK)
+add_subdirectory(DynamicDirectSend)
 
 option(MINIGRAPHICS_ENABLE_ICET "Turn on/off building IceT miniapp." ON)
 if (MINIGRAPHICS_ENABLE_ICET)

@@ -1,0 +1,24 @@
+file(REMOVE_RECURSE
+  "../lib/libminiGraphicsCommon.a"
+  "../lib/libminiGraphicsCommon.pdb"
+  "CMakeFiles/miniGraphicsCommon.dir/Compositor.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/Image.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ImageRGBAFloatColorOnly.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ImageRGBAUByteColorFloatDepth.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ImageRGBAUByteColorOnly.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ImageRGBFloatColorDepth.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ImageSparse.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/MainLoop.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/MakeBox.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/Mesh.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/MeshHelper.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/ReadSTL.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/SavePPM.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/Timer.cpp.o"
+  "CMakeFiles/miniGraphicsCommon.dir/YamlWriter.cpp.o"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/miniGraphicsCommon.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

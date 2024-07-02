@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../lib/libminiGraphicsPaint.a  CMakeFiles/miniGraphicsPaint.dir/PainterSimple.cpp.o
+/usr/bin/ranlib ../lib/libminiGraphicsPaint.a

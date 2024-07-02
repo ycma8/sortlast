@@ -22,6 +22,7 @@ class Viewport {
   int maxY;
 
  public:
+  Viewport() : minX(0), minY(0), maxX(0), maxY(0) {}
   Viewport(int _minX, int _minY, int _maxX, int _maxY)
       : minX(_minX), minY(_minY), maxX(_maxX), maxY(_maxY) {}
 
@@ -45,6 +46,32 @@ class Viewport {
                     std::min(this->minY, other.minY),
                     std::max(this->maxX, other.maxX),
                     std::max(this->maxY, other.maxY));
+  }
+
+  Viewport& operator=(const Viewport& other) {
+    this->minX = other.minX;
+    this->minY = other.minY;
+    this->maxX = other.maxX;
+    this->maxY = other.maxY;
+    return *this;
+  }
+
+  bool isOverlap(const Viewport& other) const {
+    return (std::max(this->minX, other.minX) <= std::min(this->maxX, other.maxX) &&
+            std::max(this->minY, other.minY) <= std::min(this->maxY, other.maxY));
+  }
+
+  int overlapArea(const Viewport& other) const {
+    if (!isOverlap(other)) {
+      return 0;
+    }
+    return (std::min(this->maxX, other.maxX) - std::max(this->minX, other.minX) + 1) *
+           (std::min(this->maxY, other.maxY) - std::max(this->minY, other.minY) + 1);
+  }
+
+  int unionArea(const Viewport& other) const {
+    return (std::max(this->maxX, other.maxX) - std::min(this->minX, other.minX) + 1) *
+           (std::max(this->maxY, other.maxY) - std::min(this->minY, other.minY) + 1);
   }
 };
 

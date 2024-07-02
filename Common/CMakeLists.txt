@@ -61,8 +61,13 @@ miniGraphics_create_config_header("common library")
 
 add_library(miniGraphicsCommon ${srcs} ${headers})
 
+# 设置源文件为仅头文件
 set_source_files_properties(${headers} HEADER_ONLY TRUE)
 
+# 链接 miniGraphicsCommon 到 METIS 库
+target_link_libraries(miniGraphicsCommon PRIVATE metis)
+
+# 应用 miniGraphics 目标特性
 miniGraphics_target_features(miniGraphicsCommon)
 
 if(MINIGRAPHICS_ENABLE_TESTING)

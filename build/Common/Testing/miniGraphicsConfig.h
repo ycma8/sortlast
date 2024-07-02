@@ -1,0 +1,28 @@
+// miniGraphics is distributed under the OSI-approved BSD 3-clause License.
+// See LICENSE.txt for details.
+//
+// Copyright (c) 2017
+// National Technology & Engineering Solutions of Sandia, LLC (NTESS). Under
+// the terms of Contract DE-NA0003525 with NTESS, the U.S. Government retains
+// certain rights in this software.
+
+#ifndef MINIGRAPHICSCONFIG_H
+#define MINIGRAPHICSCONFIG_H
+
+#define MINIGRAPHICS_APP_NAME "common library tests"
+
+/* #undef MINIGRAPHICS_ENABLE_OPENGL */
+
+/* #undef MINIGRAPHICS_WIN32 */
+
+#ifdef MINIGRAPHICS_WIN32
+
+// Disable warning about converting from size_t to a smaller type. STL
+// containers use size_t for its sizes and indices, but MPI uses int, which is
+// pretty much always smaller. For the purposes of a mini-app, I don't want to
+// deal with explicitly converting back and forth, so just disable the warning.
+#pragma warning(disable:4267)
+
+#endif //MINIGRAPHICS_WIN32
+
+#endif // MINIGRAPHICSCONFIG_H

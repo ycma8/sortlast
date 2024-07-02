@@ -56,6 +56,7 @@ IceTImage icetSequentialCompose(void)
 	icetGetIntegerv(ICET_COMPOSITE_ORDER, compose_group);
     } else {
 	for (i = 0; i < num_proc; i++) {
+    /* 此处可能决定合成顺序 */
 	    compose_group[i] = i;
 	}
     }

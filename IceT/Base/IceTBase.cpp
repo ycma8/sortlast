@@ -144,6 +144,7 @@ static std::unique_ptr<Image> doCompose(ImageType* localImage,
       icetCompositeImage(ImageProperties::colorBuffer(*localImage),
                          ImageProperties::depthBuffer(*localImage),
                          viewport.data(),
+                         //nullptr,
                          nullptr,
                          nullptr,
                          backgroundColor.data());

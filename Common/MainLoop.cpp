@@ -53,6 +53,12 @@
 
 #include "mpi.h"
 
+#include <metis.h>
+
+#include <cmath>
+
+// std::vector<int> splitLine;
+
 enum optionIndex {
   DUMMY = 100,
   HELP,
@@ -76,7 +82,8 @@ enum optionIndex {
   CAMERA_RANDOM_ROTATE,
   CAMERA_ANIMATE_ALL,
   CAMERA_RANDOM_ALL,
-  RANDOM_SEED
+  RANDOM_SEED,
+  METIS_TYPE
 };
 enum enableIndex { DISABLE, ENABLE };
 enum paintType { SIMPLE_RASTER, OPENGL };
@@ -108,6 +115,7 @@ struct RunOptions {
   cameraMoveType phiMove;
   cameraMoveType zoomMove;
   std::mt19937 randomEngine;
+  int metisType;
 
   RunOptions()
       : imageWidth(1100),
@@ -128,7 +136,8 @@ struct RunOptions {
         zoom(1.0f),
         thetaMove(CAMERA_RANDOM),
         phiMove(CAMERA_RANDOM),
-        zoomMove(CAMERA_STILL) {}
+        zoomMove(CAMERA_STILL),
+        metisType(0) {}
 };
 
 struct GeometryInfo {
@@ -577,6 +586,199 @@ static void writeImage(const ImageFull& image, int trial) {
   SavePPM(image, filename.str());
 }
 
+// 新函数原型，可能需要根据实际代码环境调整参数
+static void partitionWorkloadWithMetis(const std::unique_ptr<ImageFull>& localImage,
+                                MPI_Group& composeGroup,
+                                const RunOptions& runOptions,
+                                MPI_Comm comm,
+                                YamlWriter& yaml) {
+
+    Timer timeMetis(yaml, "metis-time");
+    // 获取本地进程的 validViewport
+    Viewport myViewport = localImage->getValidViewport();
+
+    // 获取工作组中的进程数量
+    int groupSize;
+    MPI_Group_size(composeGroup, &groupSize);
+
+    // 创建一个保存所有进程 Viewport 的向量
+    std::vector<Viewport> allViewports(groupSize);
+
+    // 使用 MPI_Allgather 来收集所有进程的 Viewport
+    MPI_Allgather(&myViewport, sizeof(Viewport), MPI_BYTE,
+                  allViewports.data(), sizeof(Viewport), MPI_BYTE, comm);
+    
+    if (runOptions.metisType == 0) {
+        // 修改composeGroup顺序，根据本地进程的 validViewport的maxX排序
+
+        std::vector<std::pair<float, int>> List(groupSize);
+        for (int proc = 0; proc < groupSize; proc++) {
+            List[proc] = std::pair<float, int>(allViewports[proc].getMinX() + allViewports[proc].getMaxX(), proc);
+        }
+        std::sort(List.begin(), List.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) -> bool { return (a.first < b.first); });
+
+        std::vector<int> rankOrder;
+        rankOrder.reserve(List.size());
+        for (auto&& Entry : List) {
+            rankOrder.push_back(Entry.second);
+        }
+
+        MPI_Group_incl(composeGroup, groupSize, rankOrder.data(), &composeGroup);
+        timeMetis.stop();
+        return;
+    }
+    if (runOptions.metisType == 1) {
+        // 修改composeGroup顺序，根据本地进程的 validViewport的maxX排序
+
+        std::vector<std::pair<float, int>> List(groupSize);
+        for (int proc = 0; proc < groupSize; proc++) {
+            List[proc] = std::pair<float, int>(allViewports[proc].getMinX() + allViewports[proc].getMaxX(), proc);
+        }
+        std::sort(List.begin(), List.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) -> bool { return (a.first < b.first); });
+
+        std::vector<int> rankOrder;
+        rankOrder.reserve(List.size());
+
+        for (int i = 0; i < groupSize / 2; i++) {
+            rankOrder.push_back(List[i].second);
+            rankOrder.push_back(List[groupSize - 1 - i].second);
+        }
+        if (groupSize % 2 != 0) {
+            rankOrder.push_back(List[groupSize / 2].second);
+        }
+
+        MPI_Group_incl(composeGroup, groupSize, rankOrder.data(), &composeGroup);
+        timeMetis.stop();
+        return;
+    }
+
+    // 获取本地进程的 rank
+    char hostname[MPI_MAX_PROCESSOR_NAME];
+    int name_len;
+    MPI_Get_processor_name(hostname, &name_len);
+    hostname[name_len] = '\0'; // 确保字符串正确终止
+
+    // 假设每个主机名不会超过256个字符
+    const int max_name_len = 256;
+    std::vector<char> allHostnames(max_name_len * groupSize); // 为所有主机名分配空间
+
+    // 收集所有主机名
+    MPI_Allgather(hostname, max_name_len, MPI_CHAR,
+                  allHostnames.data(), max_name_len, MPI_CHAR, MPI_COMM_WORLD);    
+
+    // 构造METIS图
+    idx_t nVertices = groupSize; // 点的个数
+    std::vector<idx_t> xadj(0);
+    std::vector<idx_t> adjncy(0); // 压缩图表示
+    std::vector<idx_t> adjwgt(0); // 边权重
+
+    for (int i = 0; i < groupSize; i++) {
+      xadj.push_back(adjncy.size());
+      for (int j = 0; j < groupSize; j++) {
+          // if(i == j) continue;
+          if(i == j && allHostnames[i] != allHostnames[j]) continue;
+          // 交集的情况
+          if (allViewports[i].isOverlap(allViewports[j])) {
+              adjncy.push_back(j);
+              adjwgt.push_back(allViewports[i].overlapArea(allViewports[j]));
+          }
+      }
+    }
+    
+    xadj.push_back(adjncy.size());
+    idx_t nParts = groupSize / 2;
+    std::vector<idx_t> part(nVertices);
+    idx_t nWeights = 1;
+    idx_t objval;
+    if (runOptions.metisType == 2) {
+        int ret = METIS_PartGraphKway(&nVertices, &nWeights, xadj.data(), adjncy.data(),
+                                      NULL, NULL, adjwgt.data(), &nParts, NULL,
+                                      NULL, NULL, &objval, part.data());
+    }
+    else if(runOptions.metisType == 3) {
+        int ret = METIS_PartGraphRecursive(&nVertices, &nWeights, xadj.data(), adjncy.data(),
+                                      NULL, NULL, adjwgt.data(), &nParts, NULL,
+                                      NULL, NULL, &objval, part.data());
+    }
+    else {
+        timeMetis.stop();
+        return;
+    }
+    
+    // 根据metis分组结果修改composeGroup
+    std::vector<std::pair<float, int>> List(groupSize);
+    for (int proc = 0; proc < groupSize; proc++) {
+      List[proc] = std::pair<float, int>(part[proc], proc);
+    }
+    std::sort(List.begin(), List.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) -> bool { return (a.first < b.first); });
+
+    std::vector<int> rankOrder;
+    rankOrder.reserve(List.size());
+    for (auto&& Entry : List) {
+      rankOrder.push_back(Entry.second);
+    }
+
+    MPI_Group_incl(composeGroup, groupSize, rankOrder.data(), &composeGroup);
+    timeMetis.stop();
+}
+
+
+// 新函数原型，可能需要根据实际代码环境调整参数
+static void partitionWorkloadWithPrim(const std::unique_ptr<ImageFull>& localImage,
+                                       MPI_Group& composeGroup,
+                                       const RunOptions& runOptions,
+                                       MPI_Comm comm,
+                                       YamlWriter& yaml) {
+    Timer timePrim(yaml, "prim-time");
+    // 获取本地进程的 validViewport
+    Viewport myViewport = localImage->getValidViewport();
+
+    // 获取工作组中的进程数量
+    int groupSize;
+    MPI_Group_size(composeGroup, &groupSize);
+
+    // 创建一个保存所有进程 Viewport 的向量
+    std::vector<Viewport> allViewports(groupSize);
+
+    // 使用 MPI_Allgather 来收集所有进程的 Viewport
+    MPI_Allgather(&myViewport, sizeof(Viewport), MPI_BYTE,
+                  allViewports.data(), sizeof(Viewport), MPI_BYTE, comm);
+
+    Viewport totalImageViewport;
+    int minArea;
+    int tempNum;
+    std::vector<int> ranksInComposeGroup(groupSize);
+    Viewport newViewport(0,0,runOptions.imageWidth,runOptions.imageHeight);
+    for(int j = 0; j < groupSize; j++) {
+        tempNum = 0;
+        minArea = std::numeric_limits<int>::max();
+        for(int i = 0; i < groupSize; i++) {
+            if (totalImageViewport.unionArea(allViewports[i]) < minArea) {
+                minArea = totalImageViewport.unionArea(allViewports[i]);
+                tempNum = i;
+            }
+        }
+        totalImageViewport = totalImageViewport.unionWith(allViewports[tempNum]);
+        allViewports[tempNum].unionWith(newViewport);
+        ranksInComposeGroup[j] = tempNum;
+    }
+    std::vector<std::pair<float, int>> List(groupSize);
+    for (int proc = 0; proc < groupSize; proc++) {
+      List[proc] = std::pair<float, int>(ranksInComposeGroup[proc], proc);
+    }
+    std::sort(List.begin(), List.end(), [](const std::pair<float, int>& a, const std::pair<float, int>& b) -> bool { return (a.first < b.first); });
+
+    std::vector<int> rankOrder;
+    rankOrder.reserve(List.size());
+    for (auto&& Entry : List) {
+      rankOrder.push_back(Entry.second);
+    }
+
+    MPI_Group_incl(composeGroup, groupSize, rankOrder.data(), &composeGroup);
+    timePrim.stop();
+}
+
+
 static void run(RunOptions& runOptions,
                 Compositor* compositor,
                 YamlWriter& yaml) {
@@ -632,6 +834,11 @@ static void run(RunOptions& runOptions,
                              MPI_COMM_WORLD);
 
       doLocalPaint(*localImage, *painter, mesh, modelview, projection, yaml);
+
+       // Binary-Swap算法专用
+       partitionWorkloadWithMetis(localImage, composeGroup, runOptions, MPI_COMM_WORLD, yaml); 
+       // DirectSend算法专用
+       // partitionWorkloadWithPrim(localImage, composeGroup, runOptions, MPI_COMM_WORLD, yaml); 
 
       // TODO: This barrier should be optional, but is needed for any of the
       // timing of the composition to be useful.
@@ -887,7 +1094,10 @@ int MainLoop(int argc,
      "  --random-seed=<num>    Set the seed used for the pseudo-random numbers.\n"
      "                         This can be set so that multiple runs will use\n"
      "                         all the same \"random\" parameters.\n"});
-
+  usage.push_back(
+    {METIS_TYPE,   0,             "",  "metis-type", NonemptyStringArg,
+     "  --metis-type=<type>    Set the type of METIS algorithm to use for\n"
+     "                         partitioning. (0 default 1 kway 2 recursive)\n"});
   // clang-format on
 
   for (auto compositorOpt = compositorOptions.begin();
@@ -1040,7 +1250,9 @@ int MainLoop(int argc,
     runOptions.phiMove = CAMERA_RANDOM;
     runOptions.zoomMove = CAMERA_RANDOM;
   }
-
+  if (options[METIS_TYPE]) {
+    runOptions.metisType = atoi(options[METIS_TYPE].arg);
+  }
   int seed = static_cast<int>(
       std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
   if (options[RANDOM_SEED]) {
